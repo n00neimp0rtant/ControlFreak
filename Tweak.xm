@@ -1,66 +1,73 @@
-#include <stdio.h>
-#include <math.h>
-#include <unistd.h>
-#include <hid-support.h>
-#include <objc/runtime.h>
-#include <mach/mach_port.h>
-#include <mach/mach_init.h>
-#include <dlfcn.h>
-#include <substrate.h>
-#import <GraphicsServices/GSEvent.h>
-#import "iCPEvent.h"
+#import "UIEvent+Synthesize.h"
+#import "UITouch+Synthesize.h"
+#import "GSEvent.h"
+#import <substrate.h>
 
-typedef enum __GSHandInfoType2 {
-	kGSHandInfoType2TouchDown    = 1,    // first down
-	kGSHandInfoType2TouchDragged = 2,    // drag
-	kGSHandInfoType2TouchChange  = 5,    // nr touches change
-	kGSHandInfoType2TouchFinal   = 6,    // final up
-} GSHandInfoType2;
+typedef enum {
+	UP,
+	DOWN,
+	LEFT,
+	RIGHT,
+	X,
+	A,
+	B,
+	Y,
+	L,
+	R,
+	START,
+	SELECT
+} iCPButton;
 
-//static NSString* presses = @"wxadlkoihjuy";
-//static NSString* releases = @"ezqcvpgmrnft";
-static NSMutableDictionary* depressedButtons = [[NSMutableDictionary alloc] init];
-static uint8_t touchEvent[sizeof(GSEventRecord) + sizeof(GSHandInfo) + sizeof(GSPathInfo)];
+typedef enum {
+	PRESS,
+	RELEASE
+} iCPButtonState;
+
+static NSString* presses = @"wxadlkoihjuy";
+static NSString* releases = @"ezqcvpgmrnft";
+static NSMutableDictionary* touches = [[NSMutableDictionary alloc] init];
+static NSDictionary* prefs = [[[NSDictionary alloc] initWithContentsOfFile:@"/Library/Application Support/ControlFreak/com.sega.soniccd.plist"] objectForKey:@"iphone"];
+
+static BOOL debugMode = YES;
+
+iCPButton buttonForString(NSString* string){
+	char character = [string characterAtIndex:0];
+	int result = 12;
+	for(int i = 0; i < 12; i++)
+	{
+		if([presses characterAtIndex:i] == character || [releases characterAtIndex:i] == character)
+		{
+			result = i;
+			break;
+		}
+	}
+	return (iCPButton)result;
+}
+iCPButtonState buttonStateForString(NSString* string){
+	char character = [string characterAtIndex:0];
+	int result = 2;
+	for(int i = 0; i < 12; i++)
+	{
+		if([presses characterAtIndex:i] == character) return PRESS;
+		if([releases characterAtIndex:i] == character) return RELEASE;
+	}
+	return (iCPButtonState)result;
+}
 
 static void (*original_GSSendEvent)(GSEventRecord* record, mach_port_t port);
 extern "C" void replaced_GSSendEvent(GSEventRecord* record, mach_port_t port)
 {
-	original_GSSendEvent(record, port);
-	if(record->type == kGSEventHand)
+	if(debugMode)
 	{
-		struct GSTouchEvent {
-    	    GSEventRecord record;
-    	    GSHandInfo    handInfo;
-    	} * event = (struct GSTouchEvent*) record;
-		NSLog(@"**************************TOUCH EVENT**************************");
-		float x = event->record.windowLocation.x;
-		float y = event->record.windowLocation.y;
-		switch(event->handInfo.type)
+		int gsEventType = record->type;
+		if(gsEventType == 3001)
 		{
-			case 1:
-				NSLog(@"touch down at (%f, %f)", x, y);
-				break;
-			case 2:
-				NSLog(@"touch drag at (%f, %f)", x, y);
-				break;
-			case 5:
-				NSLog(@"touch change at (%f, %f)", x, y);
-				break;
-			case 6:
-				NSLog(@"touch up at (%f, %f)", x, y);
-				break;
-			default:
-				break;
+			float locationX = (float)record->location.x;
+			float locationY = (float)record->location.y;
+			NSLog(@"touch at (%f, %f)", locationX, locationY);
 		}
-		int size = sizeof(event->handInfo.pathInfos);
-		unsigned char index = event->handInfo.pathInfos[0].pathIndex;
-		unsigned char identity = event->handInfo.pathInfos[0].pathIdentity;
-		unsigned char proximity = event->handInfo.pathInfos[0].pathProximity;
-		NSLog(@"size of pathInfos: %d", size);
-		NSLog(@"index: %c", index);
-		NSLog(@"identity: %c", identity);
-		NSLog(@"proximity: %c", proximity);
 	}
+	original_GSSendEvent(record, port);
 }
 
 __attribute__((constructor))
@@ -70,70 +77,202 @@ static void initialize()
 	MSHookFunction((void*)GSSendEvent, (void*)replaced_GSSendEvent, (void**)&original_GSSendEvent);
 }
 
+void sendButtonEvent(iCPButton button, iCPButtonState state) {
+	CGPoint point;
+	NSString* buttonName;
+	switch(button)
+	{
+		case UP:
+			buttonName = [NSString stringWithString:@"up"];
+			break;
+		case DOWN:
+			buttonName = [NSString stringWithString:@"down"];
+			break;
+		case LEFT:
+			buttonName = [NSString stringWithString:@"left"];
+			break;
+		case RIGHT:
+			buttonName = [NSString stringWithString:@"right"];
+			break;
+		case X:
+			buttonName = [NSString stringWithString:@"x"];
+			break;
+		case A:
+			buttonName = [NSString stringWithString:@"a"];
+			break;
+		case B:
+			buttonName = [NSString stringWithString:@"y"];
+			break;
+		case L:
+			buttonName = [NSString stringWithString:@"l"];
+			break;
+		case R:
+			buttonName = [NSString stringWithString:@"r"];
+			break;
+		case START:
+			buttonName = [NSString stringWithString:@"start"];
+			break;
+		case SELECT:
+			buttonName = [NSString stringWithString:@"select"];
+			break;
+		default:
+			break;
+	}
+	if(buttonName != nil && [prefs objectForKey:buttonName] != nil)
+	{
+		point.x = [(NSNumber*)[(NSArray*)[prefs objectForKey:buttonName] objectAtIndex:0] floatValue];
+		point.y = [(NSNumber*)[(NSArray*)[prefs objectForKey:buttonName] objectAtIndex:1] floatValue];
+		if(state == PRESS)
+		{
+			UITouch *touch = [UITouch touchAtPoint: point];
+			UIEvent* event = [UIEvent applicationEventWithTouch: touch];
+			[event _addGestureRecognizersForView: touch.view toTouch: touch];
+			for(NSString* touchName in [touches allKeys])
+			{
+				UITouch* eachTouch = [touches objectForKey:touchName];
+				[event _addTouch:eachTouch forDelayedDelivery:NO];
+				[event _addGestureRecognizersForView:eachTouch.view toTouch:eachTouch];
+			}
+			[touches setObject:touch forKey:buttonName];
+			[event updateTimestamp];
+			[[UIApplication sharedApplication] sendEvent: event];
+		}
+		else if(state == RELEASE)
+		{
+			UITouch* touch = [touches objectForKey:buttonName];
+			UIEvent* event = [UIEvent applicationEventWithTouch: touch];
+			[touches removeObjectForKey:buttonName];
+			[event _addGestureRecognizersForView: touch.view toTouch: touch];
+			for(NSString* touchName in [touches allKeys])
+			{
+				UITouch* eachTouch = [touches objectForKey:touchName];
+				[event _addTouch:eachTouch forDelayedDelivery:NO];
+				[event _addGestureRecognizersForView: eachTouch.view toTouch: eachTouch];
+			}
+			[event _addGestureRecognizersForView: touch.view toTouch: touch];    
+			[event updateTimestamp];
+			[touch setPhase:UITouchPhaseEnded];
+			[[UIApplication sharedApplication] sendEvent: event];
+		}
+	}
+}
+
 %hook UIKeyboardInputManager
 -(BOOL)acceptInputString:(id)string
 {
 	%log;
 	
-	if([string isEqualToString:@"l"] || [string isEqualToString:@"L"]) hid_inject_button_down(HWButtonHome);
-	else if([string isEqualToString:@"v"] || [string isEqualToString:@"V"]) hid_inject_button_up(HWButtonHome);
-	else if([string isEqualToString:@"a"] || [string isEqualToString:@"q"] || [string isEqualToString:@"d"] || [string isEqualToString:@"c"] || [string isEqualToString:@"o"] || [string isEqualToString:@"g"])
-	{
-		CGPoint location;
-		if([string isEqualToString:@"a"] || [string isEqualToString:@"q"]) location = CGPointMake(60.0, 16.0);
-		else if([string isEqualToString:@"d"] || [string isEqualToString:@"c"]) location = CGPointMake(60.0, 84.0);
-		else if([string isEqualToString:@"o"] || [string isEqualToString:@"g"]) location = CGPointMake(27.0, 427.0);
-		
-    	// structure of touch GSEvent
-    	struct GSTouchEvent {
-    	    GSEventRecord record;
-    	    GSHandInfo    handInfo;
-    	} * event = (struct GSTouchEvent*) &touchEvent;
-    	bzero(touchEvent, sizeof(touchEvent));
-
-    	// set up GSEvent
-    	event->record.type = kGSEventHand;
-    	event->record.windowLocation = location;
-    	event->record.timestamp = GSCurrentEventTimestamp();
-    	event->record.infoSize = sizeof(GSHandInfo) + sizeof(GSPathInfo);
-
-    	if([string isEqualToString:@"a"] || [string isEqualToString:@"d"] || [string isEqualToString:@"o"])
-    	{
-    		event->handInfo.type = (GSHandInfoType) kGSHandInfoType2TouchDown;
-		}
-    	if([string isEqualToString:@"q"] || [string isEqualToString:@"c"] || [string isEqualToString:@"g"])
-    	{
-    		event->handInfo.type = (GSHandInfoType) kGSHandInfoType2TouchFinal;
-    	}
-    	event->handInfo.x52 = 1;
-    	bzero(&event->handInfo.pathInfos[0], sizeof(GSPathInfo));
-    	event->handInfo.pathInfos[0].pathIndex     = 1;
-    	event->handInfo.pathInfos[0].pathIdentity  = 2;
-    	if([string isEqualToString:@"a"] || [string isEqualToString:@"d"] || [string isEqualToString:@"o"])
-    	{
-    		event->handInfo.pathInfos[0].pathProximity = 0x03;
-		}
-    	if([string isEqualToString:@"q"] || [string isEqualToString:@"c"] || [string isEqualToString:@"g"])
-    	{
-			event->handInfo.pathInfos[0].pathProximity = 0x00;
-    	}
-    	event->handInfo.pathInfos[0].pathLocation  = location;
-		
-	    // send GSEvent
-	    NSLog(@"About to send fake touch event");
-	    //sendGSEvent( (GSEventRecord*) event, location);
-	    
-	    //GSSendSystemEvent((GSEventRecord*) event);
-	    GSSendEvent((GSEventRecord*) event, GSGetPurpleApplicationPort());
-	}
+	NSString* lowercaseString = [string lowercaseString];
 	
+	iCPButton button = buttonForString(lowercaseString);
+	iCPButtonState state = buttonStateForString(lowercaseString);
+	
+	sendButtonEvent(button, state);
+	
+	/*if([lowercaseString isEqualToString:@"a"])
+	{
+		CGPoint point = CGPointMake(60, 16);
+		UITouch *touch = [UITouch touchAtPoint: point];
+		UIEvent* event = [UIEvent applicationEventWithTouch: touch];
+		[event _addGestureRecognizersForView: touch.view toTouch: touch];
+		for(NSString* touchName in [touches allKeys])
+		{
+			UITouch* eachTouch = [touches objectForKey:touchName];
+			[event _addTouch:eachTouch forDelayedDelivery:NO];
+    		[event _addGestureRecognizersForView: eachTouch.view toTouch: eachTouch];
+    	}
+    	[touches setObject:touch forKey:@"left"];
+	    [event updateTimestamp];
+	    [[UIApplication sharedApplication] sendEvent: event];
+	}
+	else if([lowercaseString isEqualToString:@"q"])
+    {
+    	CGPoint point = CGPointMake(60, 16);
+    	UITouch* touch = [touches objectForKey:@"left"];
+    	UIEvent* event = [UIEvent applicationEventWithTouch: touch];
+    	[touches removeObjectForKey:@"left"];
+    	[event _addGestureRecognizersForView: touch.view toTouch: touch];
+    	for(NSString* touchName in [touches allKeys])
+		{
+			UITouch* eachTouch = [touches objectForKey:touchName];
+			[event _addTouch:eachTouch forDelayedDelivery:NO];
+    		[event _addGestureRecognizersForView: eachTouch.view toTouch: eachTouch];
+		}
+    	[event _addGestureRecognizersForView: touch.view toTouch: touch];    
+	    [event updateTimestamp];
+	    [touch setPhase:UITouchPhaseEnded];
+	    [[UIApplication sharedApplication] sendEvent: event];
+	}
+	else if([lowercaseString isEqualToString:@"d"])
+	{
+		CGPoint point = CGPointMake(60, 84);
+		UITouch *touch = [UITouch touchAtPoint: point];
+		UIEvent* event = [UIEvent applicationEventWithTouch: touch];
+		[event _addGestureRecognizersForView: touch.view toTouch: touch];
+		for(NSString* touchName in [touches allKeys])
+		{
+			UITouch* eachTouch = [touches objectForKey:touchName];
+			[event _addTouch:eachTouch forDelayedDelivery:NO];
+    		[event _addGestureRecognizersForView: eachTouch.view toTouch: eachTouch];
+    	}
+    	[touches setObject:touch forKey:@"right"];
+	    [event updateTimestamp];
+	    [[UIApplication sharedApplication] sendEvent: event];
+	}
+	else if([lowercaseString isEqualToString:@"c"])
+    {
+    	CGPoint point = CGPointMake(60, 84);
+    	UITouch* touch = [touches objectForKey:@"right"];
+    	UIEvent* event = [UIEvent applicationEventWithTouch: touch];
+    	[touches removeObjectForKey:@"right"];
+    	[event _addGestureRecognizersForView: touch.view toTouch: touch];
+    	for(NSString* touchName in [touches allKeys])
+		{
+			UITouch* eachTouch = [touches objectForKey:touchName];
+			[event _addTouch:eachTouch forDelayedDelivery:NO];
+    		[event _addGestureRecognizersForView: eachTouch.view toTouch: eachTouch];
+		}
+    	[event _addGestureRecognizersForView: touch.view toTouch: touch];    
+	    [event updateTimestamp];
+	    [touch setPhase:UITouchPhaseEnded];
+	    [[UIApplication sharedApplication] sendEvent: event];
+	}
+	else if([lowercaseString isEqualToString:@"k"])
+	{
+		CGPoint point = CGPointMake(27, 427);
+		UITouch *touch = [UITouch touchAtPoint: point];
+		UIEvent* event = [UIEvent applicationEventWithTouch: touch];
+		[event _addGestureRecognizersForView: touch.view toTouch: touch];
+		for(NSString* touchName in [touches allKeys])
+		{
+			UITouch* eachTouch = [touches objectForKey:touchName];
+			[event _addTouch:eachTouch forDelayedDelivery:NO];
+    		[event _addGestureRecognizersForView: eachTouch.view toTouch: eachTouch];
+    	}
+    	[touches setObject:touch forKey:@"a"];
+	    [event updateTimestamp];
+	    [[UIApplication sharedApplication] sendEvent: event];
+	}
+	else if([lowercaseString isEqualToString:@"p"])
+    {
+    	CGPoint point = CGPointMake(27, 427);
+    	UITouch* touch = [touches objectForKey:@"a"];
+    	UIEvent* event = [UIEvent applicationEventWithTouch: touch];
+    	[touches removeObjectForKey:@"a"];
+    	[event _addGestureRecognizersForView: touch.view toTouch: touch];
+    	for(NSString* touchName in [touches allKeys])
+		{
+			UITouch* eachTouch = [touches objectForKey:touchName];
+			[event _addTouch:eachTouch forDelayedDelivery:NO];
+    		[event _addGestureRecognizersForView: eachTouch.view toTouch: eachTouch];
+		}
+    	[event _addGestureRecognizersForView: touch.view toTouch: touch];    
+	    [event updateTimestamp];
+	    [touch setPhase:UITouchPhaseEnded];
+	    [[UIApplication sharedApplication] sendEvent: event];
+	}*/
+    
 	return %orig;
 }
 
-
-
-//-(BOOL)acceptsCharacter:(unsigned short)character { %log; return %orig; }
-//-(BOOL)stringEndsWord:(id)word { %log; return %orig; }
-//-(id)addInput:(id)input flags:(unsigned)flags point:(CGPoint)point deletePreceding:(unsigned*)preceding deleteFollowing:(unsigned*)following fromVariantKey:(BOOL)variantKey { %log; return %orig; }
-//-(id)addInput:(id)input flags:(unsigned)flags point:(CGPoint)point firstDelete:(unsigned*)aDelete fromVariantKey:(BOOL)variantKey { %log; return %orig; }
 %end
