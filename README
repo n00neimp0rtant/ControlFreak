@@ -1,0 +1,5 @@
+This was originally going to be a project to allow external controllers emulate touches on the screen so that many more games could be used with them. However, the exact hour I finally got multitouch injection working, Matthias Ringwald's "Blutrol" package hit Cydia, which does precisely that.
+
+If you still feel like trying this out, this version adds iControlPad/iCade support to Sonic CD for the iPhone. Besides that, this is just here for reference.
+
+Now, go buy Blutrol =P
