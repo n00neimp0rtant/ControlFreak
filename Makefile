@@ -4,6 +4,5 @@ TWEAK_NAME = ControlFreak
 ControlFreak_FILES = Tweak.xm UIEvent+Synthesize.m UITouch+Synthesize.m
 ControlFreak_FRAMEWORKS = UIKit
 ControlFreak_PRIVATE_FRAMEWORKS = QuartzCore GraphicsServices CoreGraphics
-ControlFreak_LDFLAGS = -L./ -lhidsupport
 
 include $(THEOS_MAKE_PATH)/tweak.mk

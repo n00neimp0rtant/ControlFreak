@@ -24,6 +24,8 @@ typedef enum {
 } iCPButtonState;
 
 static NSString* presses = @"wxadlkoihjuy";
+#import <SpringBoard5/SBApplication.h>
+
 static NSString* releases = @"ezqcvpgmrnft";
 static NSMutableDictionary* touches = [[NSMutableDictionary alloc] init];
 static NSDictionary* prefs = [[[NSDictionary alloc] initWithContentsOfFile:@"/Library/Application Support/ControlFreak/com.sega.soniccd.plist"] objectForKey:@"iphone"];
@@ -274,5 +276,17 @@ void sendButtonEvent(iCPButton button, iCPButtonState state) {
     
 	return %orig;
 }
-
 %end
+
+%hook SBApplicationController
+-(void)applicationStateChanged:(SBApplication*)changed state:(unsigned)state
+{
+	// 4 = open, active
+	
+	
+	
+	%orig;
+	NSLog(@"%@ just changed to state %u", [changed displayIdentifier], state);
+}
+%end
+	
