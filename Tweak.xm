@@ -28,7 +28,6 @@ static NSMutableDictionary* touches = [[NSMutableDictionary alloc] init];
 static NSDictionary* prefs = [[NSDictionary alloc] initWithContentsOfFile:[NSString stringWithFormat:@"/Library/Application Support/ControlFreak/%@.plist", [[NSBundle mainBundle] bundleIdentifier]]];
 
 static BOOL debugMode = NO;
->>>>>>> 60a6cf4ee4740a41d288a7c08c076461a63c6e85
 
 iCPButton buttonForString(NSString* string){
 	char character = [string characterAtIndex:0];
