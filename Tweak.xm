@@ -24,10 +24,11 @@ typedef enum {
 
 static NSString* presses = @"wxadlkoihjuy";
 static NSString* releases = @"ezqcvpgmrnft";
-static NSDictionary* prefs = [[[NSDictionary alloc] initWithContentsOfFile:@"/Library/Application Support/ControlFreak/com.sega.soniccd.plist"] objectForKey:@"iphone"];
 static NSMutableDictionary* touches = [[NSMutableDictionary alloc] init];
+static NSDictionary* prefs = [[NSDictionary alloc] initWithContentsOfFile:[NSString stringWithFormat:@"/Library/Application Support/ControlFreak/%@.plist", [[NSBundle mainBundle] bundleIdentifier]]];
 
-static BOOL logMode = YES;
+static BOOL debugMode = NO;
+>>>>>>> 60a6cf4ee4740a41d288a7c08c076461a63c6e85
 
 iCPButton buttonForString(NSString* string){
 	char character = [string characterAtIndex:0];
@@ -96,7 +97,7 @@ void sendButtonEvent(iCPButton button, iCPButtonState state) {
 	NSString* buttonName;
 	switch(button)
 	{
-		case UP:
+		/*case UP:
 			buttonName = [NSString stringWithString:@"up"];
 			break;
 		case DOWN:
@@ -115,6 +116,9 @@ void sendButtonEvent(iCPButton button, iCPButtonState state) {
 			buttonName = [NSString stringWithString:@"a"];
 			break;
 		case B:
+			buttonName = [NSString stringWithString:@"b"];
+			break;
+		case Y:
 			buttonName = [NSString stringWithString:@"y"];
 			break;
 		case L:
@@ -128,6 +132,45 @@ void sendButtonEvent(iCPButton button, iCPButtonState state) {
 			break;
 		case SELECT:
 			buttonName = [NSString stringWithString:@"select"];
+			break;
+		default:
+			break;*/
+		
+		case UP:
+			buttonName = [NSString stringWithString:@"UP"];
+			break;
+		case DOWN:
+			buttonName = [NSString stringWithString:@"DOWN"];
+			break;
+		case LEFT:
+			buttonName = [NSString stringWithString:@"LEFT"];
+			break;
+		case RIGHT:
+			buttonName = [NSString stringWithString:@"RIGHT"];
+			break;
+		case X:
+			buttonName = [NSString stringWithString:@"X"];
+			break;
+		case A:
+			buttonName = [NSString stringWithString:@"A"];
+			break;
+		case B:
+			buttonName = [NSString stringWithString:@"B"];
+			break;
+		case Y:
+			buttonName = [NSString stringWithString:@"Y"];
+			break
+		case L:
+			buttonName = [NSString stringWithString:@"L"];
+			break;
+		case R:
+			buttonName = [NSString stringWithString:@"R"];
+			break;
+		case START:
+			buttonName = [NSString stringWithString:@"START"];
+			break;
+		case SELECT:
+			buttonName = [NSString stringWithString:@"SELECT"];
 			break;
 		default:
 			break;
