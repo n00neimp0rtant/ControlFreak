@@ -26,7 +26,7 @@ typedef enum {
 static NSString* presses = @"wxadlkoihjuy";
 static NSString* releases = @"ezqcvpgmrnft";
 static NSMutableDictionary* touches = [[NSMutableDictionary alloc] init];
-static NSDictionary* prefs = [[[NSDictionary alloc] initWithContentsOfFile:@"/Library/Application Support/ControlFreak/com.sega.soniccd.plist"] objectForKey:@"iphone"];
+static NSDictionary* prefs = [[NSDictionary alloc] initWithContentsOfFile:@"/Library/Application Support/ControlFreak/com.sega.soniccd.plist"];
 
 static BOOL debugMode = YES;
 
