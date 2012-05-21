@@ -3,6 +3,7 @@
 static int currentMapStep = -1;
 static NSMutableDictionary* tapMap;
 static NSArray* buttonNames;
+static UIAlertView* alertView;
 static UIWindow* toastWindow;
 static UIView* toastView;
 
@@ -10,11 +11,11 @@ static UIView* toastView;
 {
 	if(!isMapping)
 	{
-		UIAlertView* alert = [[UIAlertView alloc] 	initWithTitle:@"ControlFreak"
-													message:@"Start the TapMapper?"
-													delegate:self
-													cancelButtonTitle:@"No"
-													otherButtonTitles:@"Yes", nil];
+		alertView = [[[UIAlertView alloc] 	initWithTitle:@"ControlFreak"
+											message:@"Start the TapMapper?"
+											delegate:self
+											cancelButtonTitle:@"No"
+											otherButtonTitles:@"Yes", nil] autorelease];
 		[alert show];
 	}
 }
@@ -29,14 +30,14 @@ static UIView* toastView;
 +(void)advanceStep
 {
 	currentMapStep++;
-	if(currentMapStep >= buttonNames)
+	if(currentMapStep >= [buttonNames count])
 	{
-		UIAlertView* alert = [[UIAlertView alloc] 	initWithTitle:@"ControlFreak"
-													message:@"Mapping complete. Have fun!"
-													delegate:self
-													cancelButtonTitle:@"Game On"
-													otherButtonTitles:nil];
-		[alert show];
+		alertView = [[[UIAlertView alloc] 	initWithTitle:@"ControlFreak"
+											message:@"Mapping complete. Have fun!"
+											delegate:self
+											cancelButtonTitle:@"Game On"
+											otherButtonTitles:nil] autorelease];
+		[alertView show];
 	}
 	else
 	{
@@ -73,4 +74,40 @@ static UIView* toastView;
 		[self advanceStep];
 	}
 }
+
+- (void)activator:(LAActivator *)activator receiveEvent:(LAEvent *)event
+{
+	[self start];
+}
+
+- (void)activator:(LAActivator *)activator abortEvent:(LAEvent *)event
+{
+	if(alertView != nil)
+		[alertView dismissWithClickedButtonIndex:[alertView cancelButtonIndex] animated:YES];
+}
+
+- (void)activator:(LAActivator *)activator otherListenerDidHandleEvent:(LAEvent *)event
+{
+	if(alertView != nil)
+		[alertView dismissWithClickedButtonIndex:[alertView cancelButtonIndex] animated:YES];
+}
+
+- (void)activator:(LAActivator *)activator receiveDeactivateEvent:(LAEvent *)event
+{
+	alertView = [[UIAlertView alloc] 	initWithTitle:@"ControlFreak"
+										message:@"Mapping canceled."
+										delegate:self
+										cancelButtonTitle:@"Dismiss"
+										otherButtonTitles:nil];
+	[alertView show];
+	[event setHandled:YES];
+}
+
++(void)load
+{
+	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+	[[LAActivator sharedInstance] registerListener:[self new] forName:@"controlfreak.starttapmapper"];
+	[pool release];
+}
+
 @end
