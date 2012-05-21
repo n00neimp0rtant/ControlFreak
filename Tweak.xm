@@ -2,7 +2,7 @@
 #import "UITouch+Synthesize.h"
 #import "GSEvent.h"
 #import <substrate.h>
-
+#import <SpringBoard5/SBApplication.h>
 typedef enum {
 	UP,
 	DOWN,
@@ -17,20 +17,17 @@ typedef enum {
 	START,
 	SELECT
 } iCPButton;
-
 typedef enum {
 	PRESS,
 	RELEASE
 } iCPButtonState;
 
 static NSString* presses = @"wxadlkoihjuy";
-#import <SpringBoard5/SBApplication.h>
-
 static NSString* releases = @"ezqcvpgmrnft";
-static NSMutableDictionary* touches = [[NSMutableDictionary alloc] init];
 static NSDictionary* prefs = [[[NSDictionary alloc] initWithContentsOfFile:@"/Library/Application Support/ControlFreak/com.sega.soniccd.plist"] objectForKey:@"iphone"];
+static NSMutableDictionary* touches = [[NSMutableDictionary alloc] init];
 
-static BOOL debugMode = YES;
+static BOOL logMode = YES;
 
 iCPButton buttonForString(NSString* string){
 	char character = [string characterAtIndex:0];
@@ -66,7 +63,22 @@ extern "C" void replaced_GSSendEvent(GSEventRecord* record, mach_port_t port)
 		{
 			float locationX = (float)record->location.x;
 			float locationY = (float)record->location.y;
-			NSLog(@"touch at (%f, %f)", locationX, locationY);
+			GSHandInfoType touchType = (*((int*)record + 0xD))-1;
+			switch(touchType)
+			{
+				case kGSHandInfoTypeTouchDown:
+					NSLog(@"touch down at (%f, %f)", locationX, locationY);
+				case kGSHandInfoTypeTouchDragged:
+					NSLog(@"touch dragged at (%f, %f)", locationX, locationY);
+				case kGSHandInfoTypeTouchMoved:
+					NSLog(@"touch moved at (%f, %f)", locationX, locationY);
+				case kGSHandInfoTypeTouchUp:
+					NSLog(@"touch up at (%f, %f)", locationX, locationY);
+				case kGSHandInfoTypeCancel:
+					NSLog(@"touch cancelled at (%f, %f)", locationX, locationY);
+				default:
+					break;
+			}
 		}
 	}
 	original_GSSendEvent(record, port);
@@ -159,18 +171,20 @@ void sendButtonEvent(iCPButton button, iCPButtonState state) {
 	}
 }
 
+%class Dink
+
 %hook UIKeyboardInputManager
 -(BOOL)acceptInputString:(id)string
 {
 	%log;
 	
-	NSString* lowercaseString = [string lowercaseString];
-	
-	iCPButton button = buttonForString(lowercaseString);
-	iCPButtonState state = buttonStateForString(lowercaseString);
-	
-	sendButtonEvent(button, state);
-    
+	if([[%c(UIKeyboardImpl) sharedInstance] isInHardwareKeyboardMode])
+	{
+		NSString* lowercaseString = [string lowercaseString];
+		iCPButton button = buttonForString(lowercaseString);
+		iCPButtonState state = buttonStateForString(lowercaseString);
+		sendButtonEvent(button, state);
+	}
 	return %orig;
 }
 %end
